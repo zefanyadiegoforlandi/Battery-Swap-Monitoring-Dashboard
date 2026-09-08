@@ -3,132 +3,155 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SECRET_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SECRET_KEY!,
 );
 
 const querySchema = z.object({
-  q: z.string().optional(),
-  status: z
-    .enum(["ONLINE", "OFFLINE", "MAINTENANCE"])
-    .optional(),
-  page: z.coerce.number().int().min(1).default(1),
+    q: z.string().optional(),
+    status: z.enum(["ONLINE", "OFFLINE", "MAINTENANCE"]).optional(),
+    page: z.coerce.number().int().min(1).default(1),
 });
 
 type Swap = {
-  cabinet_id: string;
-  swap_24h: number;
+    cabinet_id: string;
+    swap_24h: number;
 };
 
 export async function GET(request: NextRequest) {
-  const params = Object.fromEntries(
-    request.nextUrl.searchParams,
-  );
-
-  const validation = querySchema.safeParse(params);
-
-  if (!validation.success) {
-    return NextResponse.json(
-      { error: "Query tidak valid" },
-      { status: 400 },
+    const params = Object.fromEntries(
+        request.nextUrl.searchParams,
     );
-  }
 
-  const q = validation.data.q || "";
-  const status = validation.data.status;
-  const page = validation.data.page;
-  const limit = 10;
+    const validation = querySchema.safeParse(params);
 
-  let branchIds: string[] = [];
-
-  if (q) {
-    const { data: branches, error: branchError } = await supabase
-      .from("branches")
-      .select("id")
-      .ilike("name", `%${q}%`);
-
-    if (branchError) {
-      return NextResponse.json(
-        { error: "Gagal mencari cabang" },
-        { status: 500 },
-      );
+    if (!validation.success) {
+        return NextResponse.json(
+            { error: "Query tidak valid" },
+            { status: 400 },
+        );
     }
 
-    branchIds = branches.map((branch) => branch.id);
-  }
+    const q = validation.data.q || "";
+    const status = validation.data.status;
+    const page = validation.data.page;
+    const limit = 10;
 
-  let query = supabase.from("cabinets").select(`
-    id,
-    code,
-    status,
-    total_slots,
-    last_heartbeat_at,
-    branch_id
-  `);
+    let branchIds: string[] = [];
 
-  if (status) {
-    query = query.eq("status", status);
-  }
+    if (q) {
+        const { data: branches, error } = await supabase
+            .from("branches")
+            .select("id")
+            .ilike("name", `%${q}%`);
 
-  if (q) {
-    if (branchIds.length > 0) {
-      query = query.or(
-        `code.ilike.%${q}%,branch_id.in.(${branchIds.join(",")})`,
-      );
-    } else {
-      query = query.ilike("code", `%${q}%`);
+        if (error) {
+            return NextResponse.json(
+                { error: "Gagal mencari cabang" },
+                { status: 500 },
+            );
+        }
+
+        branchIds = branches.map(
+            (branch) => branch.id,
+        );
     }
-  }
 
-  const { data: cabinets, error } = await query;
+    let query = supabase
+        .from("cabinets")
+        .select(`
+            id,
+            code,
+            status,
+            total_slots,
+            last_heartbeat_at,
+            branch:branches(name)
+        `);
 
-  if (error) {
-    return NextResponse.json(
-      { error: "Gagal mengambil data cabinet" },
-      { status: 500 },
+    if (status) {
+        query = query.eq("status", status);
+    }
+
+    if (q) {
+        if (branchIds.length > 0) {
+            query = query.or(
+                `code.ilike.%${q}%,branch_id.in.(${branchIds.join(",")})`,
+            );
+        } else {
+            query = query.ilike(
+                "code",
+                `%${q}%`,
+            );
+        }
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+        return NextResponse.json(
+            { error: "Gagal mengambil data cabinet" },
+            { status: 500 },
+        );
+    }
+
+    const cabinets = data ?? [];
+
+    const cabinetIds = cabinets.map(
+        (cabinet) => cabinet.id,
     );
-  }
 
-  const cabinetIds = cabinets.map((cabinet) => cabinet.id);
+    const { data: swaps, error: swapError } =
+        await supabase.rpc(
+            "get_swap_count_24h",
+            {
+                cabinet_ids: cabinetIds,
+            },
+        );
 
-  const { data: swaps, error: swapError } = await supabase.rpc(
-    "get_swap_count_24h",
-    {
-      cabinet_ids: cabinetIds,
-    },
-  );
+    if (swapError) {
+        return NextResponse.json(
+            { error: "Gagal menghitung swap 24 jam" },
+            { status: 500 },
+        );
+    }
 
-  if (swapError) {
-    return NextResponse.json(
-      { error: "Gagal menghitung swap 24 jam" },
-      { status: 500 },
-    );
-  }
+    const swapList = (swaps ?? []) as Swap[];
 
-  const swapList = (swaps ?? []) as Swap[];
+    const result = cabinets
+        .map((cabinet) => {
+            const swap = swapList.find(
+                (item: Swap) =>
+                    item.cabinet_id === cabinet.id,
+            );
 
-  const result = cabinets.map((cabinet) => {
-    const swap = swapList.find(
-      (item: Swap) => item.cabinet_id === cabinet.id,
-    );
+            return {
+                id: cabinet.id,
+                code: cabinet.code,
+                branch_name: cabinet.branch?.[0]?.name || "-",
+                status: cabinet.status,
+                total_slots: cabinet.total_slots,
+                swap_24h: swap
+                    ? Number(swap.swap_24h)
+                    : 0,
+                last_heartbeat_at:
+                    cabinet.last_heartbeat_at,
+            };
+        })
+        .sort(
+            (a, b) => b.swap_24h - a.swap_24h,
+        );
 
-    return {
-      ...cabinet,
-      swap_24h: swap ? Number(swap.swap_24h) : 0,
-    };
-  });
+    const start = (page - 1) * limit;
 
-  result.sort((a, b) => b.swap_24h - a.swap_24h);
-
-  const start = (page - 1) * limit;
-  const data = result.slice(start, start + limit);
-
-  return NextResponse.json({
-    data,
-    pagination: {
-      page,
-      limit,
-      total: result.length,
-    },
-  });
+    return NextResponse.json({
+        data: result.slice(
+            start,
+            start + limit,
+        ),
+        pagination: {
+            page,
+            limit,
+            total: result.length,
+        },
+    });
 }
