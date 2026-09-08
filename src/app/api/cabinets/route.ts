@@ -9,9 +9,15 @@ const supabase = createClient(
 
 const querySchema = z.object({
     q: z.string().optional(),
-    status: z.enum(["ONLINE", "OFFLINE", "MAINTENANCE"]).optional(),
+    status: z
+        .enum(["ONLINE", "OFFLINE", "MAINTENANCE"])
+        .optional()
+        .or(z.literal("")), 
     page: z.coerce.number().int().min(1).default(1),
 });
+// entah kenapa ga mau di commit ulang buat fix bug ini kak
+// entah kenapa ga mau di commit ulang buat fix bug ini kak
+
 
 type Swap = {
     cabinet_id: string;
@@ -33,7 +39,7 @@ export async function GET(request: NextRequest) {
     }
 
     const q = validation.data.q || "";
-    const status = validation.data.status;
+    const status = validation.data.status || "";
     const page = validation.data.page;
     const limit = 10;
 
@@ -127,7 +133,8 @@ export async function GET(request: NextRequest) {
             return {
                 id: cabinet.id,
                 code: cabinet.code,
-                branch_name: cabinet.branch?.[0]?.name || "-",
+                branch_name:
+                    cabinet.branch?.[0]?.name || "-",
                 status: cabinet.status,
                 total_slots: cabinet.total_slots,
                 swap_24h: swap
