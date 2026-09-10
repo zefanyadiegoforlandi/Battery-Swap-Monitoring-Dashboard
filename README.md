@@ -91,6 +91,7 @@ Buat file `.env.local` di root project:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your_supabase_publishable_key
 SUPABASE_SECRET_KEY=your_supabase_service_role_key
 ```
 
