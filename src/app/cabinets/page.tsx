@@ -159,15 +159,13 @@ export default function CabinetsPage() {
                                     <th className="p-3">Slot</th>
                                     <th className="p-3">Swap 24 Jam</th>
                                     <th className="p-3">Heartbeat</th>
+                                    <th className="p-3">Action</th>
                                 </tr>
                             </thead>
 
                             <tbody>
                                 {cabinets.map((cabinet) => (
-                                    <tr
-                                        key={cabinet.id}
-                                        className="border-b"
-                                    >
+                                    <tr key={cabinet.id} className="border-b">
                                         <td className="p-3">
                                             {cabinet.code}
                                         </td>
@@ -189,6 +187,16 @@ export default function CabinetsPage() {
                                                       cabinet.last_heartbeat_at,
                                                   ).toLocaleString()
                                                 : "-"}
+                                        </td>
+                                        <td className="p-3">
+                                            <button
+                                                onClick={() =>
+                                                    router.push(`/cabinets/${cabinet.id}`)
+                                                }
+                                                className="rounded bg-black px-3 py-1 text-sm text-white hover:bg-gray-800"
+                                            >
+                                                Detail
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}
