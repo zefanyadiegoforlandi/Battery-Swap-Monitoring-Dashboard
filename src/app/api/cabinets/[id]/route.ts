@@ -93,8 +93,10 @@ export async function GET(
         );
 
     if (hourlyError) {
+        console.error(hourlyError);
+
         return NextResponse.json(
-            { error: "Gagal mengambil grafik swap" },
+            { error: hourlyError.message },
             { status: 500 },
         );
     }
