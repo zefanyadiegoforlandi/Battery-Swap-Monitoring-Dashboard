@@ -12,23 +12,22 @@ const querySchema = z.object({
     status: z
         .enum(["ONLINE", "OFFLINE", "MAINTENANCE"])
         .optional()
-        .or(z.literal("")), 
+        .or(z.literal("")),
     page: z.coerce.number().int().min(1).default(1),
 });
-// entah kenapa ga mau di commit ulang buat fix bug ini kak
-// entah kenapa ga mau di commit ulang buat fix bug ini kak
-
 
 type Swap = {
     cabinet_id: string;
     swap_24h: number;
 };
 
-export async function GET(request: NextRequest) {
-    const params = Object.fromEntries(
-        request.nextUrl.searchParams,
-    );
+type Slot = {
+    cabinet_id: string;
+    state: string;
+};
 
+export async function GET(request: NextRequest) {
+    const params = Object.fromEntries(request.nextUrl.searchParams);
     const validation = querySchema.safeParse(params);
 
     if (!validation.success) {
@@ -58,9 +57,7 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        branchIds = branches.map(
-            (branch) => branch.id,
-        );
+        branchIds = branches.map((branch) => branch.id);
     }
 
     let query = supabase
@@ -84,10 +81,7 @@ export async function GET(request: NextRequest) {
                 `code.ilike.%${q}%,branch_id.in.(${branchIds.join(",")})`,
             );
         } else {
-            query = query.ilike(
-                "code",
-                `%${q}%`,
-            );
+            query = query.ilike("code", `%${q}%`);
         }
     }
 
@@ -101,18 +95,12 @@ export async function GET(request: NextRequest) {
     }
 
     const cabinets = data ?? [];
+    const cabinetIds = cabinets.map((cabinet) => cabinet.id);
 
-    const cabinetIds = cabinets.map(
-        (cabinet) => cabinet.id,
+    const { data: swaps, error: swapError } = await supabase.rpc(
+        "get_swap_count_24h",
+        { cabinet_ids: cabinetIds },
     );
-
-    const { data: swaps, error: swapError } =
-        await supabase.rpc(
-            "get_swap_count_24h",
-            {
-                cabinet_ids: cabinetIds,
-            },
-        );
 
     if (swapError) {
         return NextResponse.json(
@@ -121,40 +109,56 @@ export async function GET(request: NextRequest) {
         );
     }
 
+    const { data: slots, error: slotError } = await supabase
+        .from("slots")
+        .select("cabinet_id, state")
+        .in("cabinet_id", cabinetIds);
+
+    if (slotError) {
+        return NextResponse.json(
+            { error: "Gagal menghitung slot terisi" },
+            { status: 500 },
+        );
+    }
+
     const swapList = (swaps ?? []) as Swap[];
+    const slotList = (slots ?? []) as Slot[];
+
+    const swapMap = new Map(
+        swapList.map((item) => [
+            item.cabinet_id,
+            Number(item.swap_24h),
+        ]),
+    );
+
+    const occupiedSlotMap = new Map<string, number>();
+
+    for (const slot of slotList) {
+        if (slot.state !== "EMPTY") {
+            occupiedSlotMap.set(
+                slot.cabinet_id,
+                (occupiedSlotMap.get(slot.cabinet_id) ?? 0) + 1,
+            );
+        }
+    }
 
     const result = cabinets
-        .map((cabinet) => {
-            const swap = swapList.find(
-                (item: Swap) =>
-                    item.cabinet_id === cabinet.id,
-            );
-
-            return {
-                id: cabinet.id,
-                code: cabinet.code,
-                branch_name:
-                    cabinet.branch?.[0]?.name || "-",
-                status: cabinet.status,
-                total_slots: cabinet.total_slots,
-                swap_24h: swap
-                    ? Number(swap.swap_24h)
-                    : 0,
-                last_heartbeat_at:
-                    cabinet.last_heartbeat_at,
-            };
-        })
-        .sort(
-            (a, b) => b.swap_24h - a.swap_24h,
-        );
+        .map((cabinet) => ({
+            id: cabinet.id,
+            code: cabinet.code,
+            branch_name: cabinet.branch?.[0]?.name || "-",
+            status: cabinet.status,
+            occupied_slots: occupiedSlotMap.get(cabinet.id) ?? 0,
+            total_slots: cabinet.total_slots,
+            swap_24h: swapMap.get(cabinet.id) ?? 0,
+            last_heartbeat_at: cabinet.last_heartbeat_at,
+        }))
+        .sort((a, b) => b.swap_24h - a.swap_24h);
 
     const start = (page - 1) * limit;
 
     return NextResponse.json({
-        data: result.slice(
-            start,
-            start + limit,
-        ),
+        data: result.slice(start, start + limit),
         pagination: {
             page,
             limit,

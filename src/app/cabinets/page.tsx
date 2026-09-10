@@ -8,6 +8,7 @@ type Cabinet = {
     code: string;
     branch_name: string;
     status: string;
+    occupied_slots: number;
     total_slots: number;
     swap_24h: number;
     last_heartbeat_at: string | null;
@@ -156,8 +157,7 @@ export default function CabinetsPage() {
                                     <th className="p-3">Kode</th>
                                     <th className="p-3">Cabang</th>
                                     <th className="p-3">Status</th>
-                                    <th className="p-3">Slot</th>
-                                    <th className="p-3">Swap 24 Jam</th>
+                                    <th className="p-3">Occupied / Total</th>                                    <th className="p-3">Swap 24 Jam</th>
                                     <th className="p-3">Heartbeat</th>
                                     <th className="p-3">Action</th>
                                 </tr>
@@ -176,7 +176,7 @@ export default function CabinetsPage() {
                                             {cabinet.status}
                                         </td>
                                         <td className="p-3">
-                                            {cabinet.total_slots}
+                                            {cabinet.occupied_slots} / {cabinet.total_slots}
                                         </td>
                                         <td className="p-3">
                                             {cabinet.swap_24h}
