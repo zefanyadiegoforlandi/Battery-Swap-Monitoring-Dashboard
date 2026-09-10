@@ -87,7 +87,7 @@ npx supabase link --project-ref <project-ref>
 
 ### 4. Setup environment variables
 
-Buat file `.env.local` di root project:
+Buat file `.env` di root project:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
