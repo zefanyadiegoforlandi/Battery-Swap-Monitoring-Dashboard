@@ -94,9 +94,8 @@ export async function GET(
 
     if (hourlyError) {
         console.error(hourlyError);
-
         return NextResponse.json(
-            { error: hourlyError.message },
+            { error: "Gagal mengambil data swap per jam" },
             { status: 500 },
         );
     }
