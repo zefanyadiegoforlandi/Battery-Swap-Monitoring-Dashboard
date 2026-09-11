@@ -88,7 +88,7 @@ export async function GET(
         await supabase.rpc(
             "get_hourly_swap_count",
             {
-                cabinet_id: id,
+                p_cabinet_id: id,
             },
         );
 

@@ -97,6 +97,26 @@ function createCabinets(
     );
 }
 
+function createSocForState(
+    state: (typeof SLOT_STATES)[number],
+): number | null {
+    switch (state) {
+        case "CHARGING":
+            return randomInt(20, 99);
+
+        case "FULL":
+            return 100;
+
+        case "EMPTY":
+        case "LOCKED":
+        case "FAULT":
+            return null;
+
+        default:
+            return null;
+    }
+}
+
 function createSlots(cabinets: { id: string }[]) {
     const slots: {
         id: string;
@@ -119,10 +139,7 @@ function createSlots(cabinets: { id: string }[]) {
                 cabinet_id: cabinet.id,
                 slot_number: slotNumber,
                 state,
-                soc_percent:
-                    state === "EMPTY" || state === "LOCKED"
-                        ? null
-                        : randomInt(10, 100),
+                soc_percent: createSocForState(state),
             });
         }
     }
@@ -226,7 +243,7 @@ async function main() {
     console.log(`Branches: ${branches.length}`);
     console.log(`Cabinets: ${cabinets.length}`);
     console.log(`Slots: ${slots.length}`);
-    console.log(`Transactions: ${transactions.length}`,);
+    console.log(`Transactions: ${transactions.length}`);
 }
 
 main().catch((error) => {
