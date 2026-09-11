@@ -153,15 +153,11 @@ export default function CabinetsTable({
                             <th className="hidden py-3 pr-4 font-normal md:table-cell">
                                 Swap 24 jam
                             </th>
-
                             <th className="hidden py-3 pr-4 font-normal lg:table-cell">
                                 Heartbeat
                             </th>
-
                             <th className="py-3 font-normal">
-                                <span className="sr-only">
-                                    Aksi
-                                </span>
+                                Aksi
                             </th>
                         </tr>
                     </thead>
@@ -214,16 +210,14 @@ export default function CabinetsTable({
                                         : "—"}
                                 </td>
 
-                                <td className="py-4 text-right">
+                                <td className="py-4">
                                     <button
                                         onClick={() =>
                                             router.push(
                                                 `/cabinets/${cabinet.id}`,
                                             )
                                         }
-                                        className="border-b border-transparent text-sm hover:border-[#66BB6A] hover:text-[#66BB6A]"
-                                    >
-                                        Detail
+                                        className="border-b border-transparent text-sm hover:border-[#66BB6A] hover:text-[#66BB6A]"> Detail
                                     </button>
                                 </td>
                             </tr>
